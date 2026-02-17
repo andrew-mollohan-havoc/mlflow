@@ -8,9 +8,8 @@ try:
     from mlflow.utils import rest_utils
     _orig_http_request = rest_utils.http_request
 
-    TOKEN = os.getenv("MLFLOW_QUERY_TOKEN")
-
     def _http_request_with_token(host_creds, endpoint, method, *args, **kwargs):
+        TOKEN = os.getenv("MLFLOW_QUERY_TOKEN")
         if TOKEN:
             sep = '&' if '?' in endpoint else '?'
             endpoint = f"{endpoint}{sep}{urlencode({'token': TOKEN})}"
@@ -22,4 +21,4 @@ except Exception as e:
     pass
 
 mlflow.set_tracking_uri("https://mlflow.havocai.net")
-print(mlflow.get_experiment_by_name("Default"))
+print(mlflow.get_experiment_by_name("andrewm"))

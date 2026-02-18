@@ -1,6 +1,8 @@
 import mlflow
+from mlflow.entities import ViewType
 import os
 from urllib.parse import urlencode
+
 
 
 # Append ?token=... to every MLflow REST request (stopgap)
@@ -21,4 +23,8 @@ except Exception as e:
     pass
 
 mlflow.set_tracking_uri("https://mlflow.havocai.net")
-print(mlflow.get_experiment_by_name("andrewm"))
+mlflow.set_experiment("andrewm-test")
+# Get all experiments, including active and archived
+all_experiments = mlflow.search_experiments(view_type=ViewType.ALL)
+for exp in all_experiments:
+    print(f"Experiment ID: {exp.experiment_id}, Name: {exp.name}, Lifecycle Stage: {exp.lifecycle_stage}")

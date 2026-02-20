@@ -22,7 +22,8 @@ except Exception as e:
     # Optional: log or ignore if patching fails; MLflow will proceed without query token
     pass
 
-mlflow.set_tracking_uri("https://mlflow.havocai.net")
+tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
+mlflow.set_tracking_uri(tracking_uri)
 mlflow.set_experiment("andrewm-test")
 # Get all experiments, including active and archived
 all_experiments = mlflow.search_experiments(view_type=ViewType.ALL)

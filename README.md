@@ -1,6 +1,6 @@
 # MLflow Local Test Harness
 
-Minimal setup for running MLflow client calls against the configured tracking server.
+Minimal setup for running MLflow client calls against a configured tracking server.
 
 ## Prerequisites
 
@@ -12,6 +12,26 @@ Minimal setup for running MLflow client calls against the configured tracking se
 make venv
 make install
 make activate
+```
+
+## Docker Dependency
+
+Running MLflow locally uses the official Docker image. Make sure Docker Desktop (or equivalent) is installed and running before starting the tracking server.
+
+## Run MLflow Locally (Docker)
+
+```bash
+# Pull the MLflow image (optional; up will also pull)
+make mlflow-docker-pull
+
+# Start the tracking server on http://127.0.0.1:5000
+make mlflow-docker-up
+
+# View logs
+make mlflow-docker-logs
+
+# Stop and remove the container
+make mlflow-docker-down
 ```
 
 If you are using an API token for query access, export it before running scripts:
@@ -31,6 +51,10 @@ python main.py
 # Patch MLflow REST calls to append the token query param (if set)
 python jank.py
 ```
+
+## Local MLflow Data
+
+Local runs and artifacts are stored in `mlruns/` and `mlartifacts/` when you use the Docker-backed tracking server. These directories are intentionally gitignored because they are environment-specific and can be large and frequently changing.
 
 ## Cleanup
 

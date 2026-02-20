@@ -1,10 +1,15 @@
 import mlflow
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import load_diabetes
 from sklearn.ensemble import RandomForestRegressor
 import sklearn.metrics
 
-# 1. Set the experiment (creates a new one if name doesn't exist)
+# 1. Set the tracking URI (defaults to local MLflow server)
+tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
+mlflow.set_tracking_uri(tracking_uri)
+
+# 2. Set the experiment (creates a new one if name doesn't exist)
 experiment_name = "Diabetes_RF_Experiment"
 mlflow.set_experiment(experiment_name)
 

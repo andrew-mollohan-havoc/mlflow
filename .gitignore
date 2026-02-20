@@ -5,3 +5,6 @@ venv/
 __pycache__/
 # local environment variables
 .env
+# MLflow local tracking data + artifacts
+mlruns/
+mlartifacts/

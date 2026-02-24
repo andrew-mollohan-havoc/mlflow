@@ -1,4 +1,5 @@
 .PHONY: venv activate install clean \
+	mlflow-local \
 	mlflow-docker-login mlflow-docker-pull mlflow-docker-up mlflow-docker-down mlflow-docker-logs
 
 VENV_DIR := venv
@@ -46,3 +47,9 @@ mlflow-docker-down:
 
 mlflow-docker-logs:
 	docker logs --tail 50 $(MLFLOW_DOCKER_CONTAINER)
+
+mlflow-docker-up-defaults: mlflow-docker-pull
+	docker run -d --name $(MLFLOW_DOCKER_CONTAINER) \
+		-p $(MLFLOW_PORT):5000 \
+		$(MLFLOW_DOCKER_IMAGE) \
+		mlflow server --host 0.0.0.0 --port 5000

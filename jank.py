@@ -1,31 +1,23 @@
 import mlflow
 from mlflow.entities import ViewType
-import os
-from urllib.parse import urlencode
+
+from mlflow_harness.config import get_settings
+from mlflow_harness.tracking import apply_query_token_patch, configure_mlflow
 
 
+def main() -> None:
+    settings = get_settings()
+    # Preserve the token-based query patching behavior from the original script.
+    apply_query_token_patch(settings.query_token)
+    configure_mlflow(settings, enable_token_patch=False)
 
-# Append ?token=... to every MLflow REST request (stopgap)
-try:
-    from mlflow.utils import rest_utils
-    _orig_http_request = rest_utils.http_request
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL)
+    for exp in experiments:
+        print(
+            f"Experiment ID: {exp.experiment_id}, Name: {exp.name}, "
+            f"Lifecycle Stage: {exp.lifecycle_stage}"
+        )
 
-    def _http_request_with_token(host_creds, endpoint, method, *args, **kwargs):
-        TOKEN = os.getenv("MLFLOW_QUERY_TOKEN")
-        if TOKEN:
-            sep = '&' if '?' in endpoint else '?'
-            endpoint = f"{endpoint}{sep}{urlencode({'token': TOKEN})}"
-        return _orig_http_request(host_creds, endpoint, method, *args, **kwargs)
 
-    rest_utils.http_request = _http_request_with_token
-except Exception as e:
-    # Optional: log or ignore if patching fails; MLflow will proceed without query token
-    pass
-
-tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
-mlflow.set_tracking_uri(tracking_uri)
-mlflow.set_experiment("andrewm-test")
-# Get all experiments, including active and archived
-all_experiments = mlflow.search_experiments(view_type=ViewType.ALL)
-for exp in all_experiments:
-    print(f"Experiment ID: {exp.experiment_id}, Name: {exp.name}, Lifecycle Stage: {exp.lifecycle_stage}")
+if __name__ == "__main__":
+    main()

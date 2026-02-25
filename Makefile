@@ -1,8 +1,13 @@
-.PHONY: venv activate install clean \
-	mlflow-local \
-	mlflow-docker-login mlflow-docker-pull mlflow-docker-up mlflow-docker-down mlflow-docker-logs
+.PHONY: activate all clean install list-experiments \
+	mlflow-docker-down mlflow-docker-logs mlflow-docker-login mlflow-docker-pull \
+	mlflow-docker-up mlflow-docker-up-defaults mlflow-local \
+	run-training setup-tracking test venv verify
 
 VENV_DIR := venv
+VENV_BIN := $(VENV_DIR)/bin
+PYTHON := $(VENV_BIN)/python
+PIP := $(VENV_BIN)/pip
+PYTEST := $(VENV_BIN)/pytest
 MLFLOW_PORT ?= 5000
 MLFLOW_DOCKER_IMAGE ?= ghcr.io/mlflow/mlflow
 MLFLOW_DOCKER_CONTAINER ?= mlflow-tracking
@@ -10,19 +15,51 @@ MLFLOW_DOCKER_MLRUNS ?= ./mlruns
 MLFLOW_DOCKER_MLARTIFACTS ?= ./mlartifacts
 GHCR_USER ?= USERNAME
 
+install: venv
+	@. $(VENV_DIR)/bin/activate && \
+		pip install --upgrade pip && \
+		pip install -r requirements.txt && \
+		pip install -e .
+
 venv:
 	python3 -m venv $(VENV_DIR)
 
-activate:
-	@echo "Run: source $(VENV_DIR)/bin/activate"
+verify:
+	$(MAKE) install
+	$(MAKE) test
+	$(MAKE) setup-tracking
+	$(MAKE) list-experiments
+	$(MAKE) run-training
 
-install: venv
-	$(VENV_DIR)/bin/pip install --upgrade pip
-	$(VENV_DIR)/bin/pip install -r requirements.txt
+all: verify
+
+activate: venv
+	@echo "Spawning a shell with the venv activated. Exit to return."
+	@. $(VENV_DIR)/bin/activate && exec $${SHELL:-/bin/bash} -i
+
+list-experiments: install
+	$(PYTHON) scripts/list_experiments.py
 
 clean:
 	rm -rf $(VENV_DIR)
 	rm -rf __pycache__
+
+run-training: install
+	$(PYTHON) scripts/run_training.py
+
+setup-tracking: install
+	$(PYTHON) scripts/setup_tracking.py
+
+test: install
+	$(PYTEST) -q
+
+mlflow-local: mlflow-docker-up
+
+mlflow-docker-down:
+	docker rm -f $(MLFLOW_DOCKER_CONTAINER)
+
+mlflow-docker-logs:
+	docker logs --tail 50 $(MLFLOW_DOCKER_CONTAINER)
 
 mlflow-docker-login:
 	@echo "Using CR_PAT env var for GitHub Container Registry access"
@@ -30,6 +67,12 @@ mlflow-docker-login:
 
 mlflow-docker-pull:
 	docker pull $(MLFLOW_DOCKER_IMAGE)
+
+mlflow-docker-up-defaults: mlflow-docker-pull
+	docker run -d --name $(MLFLOW_DOCKER_CONTAINER) \
+		-p $(MLFLOW_PORT):5000 \
+		$(MLFLOW_DOCKER_IMAGE) \
+		mlflow server --host 0.0.0.0 --port 5000
 
 mlflow-docker-up: mlflow-docker-pull
 	mkdir -p $(MLFLOW_DOCKER_MLRUNS) $(MLFLOW_DOCKER_MLARTIFACTS)
@@ -41,15 +84,3 @@ mlflow-docker-up: mlflow-docker-pull
 		mlflow server --host 0.0.0.0 --port 5000 \
 		--backend-store-uri /mlflow/mlruns \
 		--default-artifact-root /mlflow/mlartifacts
-
-mlflow-docker-down:
-	docker rm -f $(MLFLOW_DOCKER_CONTAINER)
-
-mlflow-docker-logs:
-	docker logs --tail 50 $(MLFLOW_DOCKER_CONTAINER)
-
-mlflow-docker-up-defaults: mlflow-docker-pull
-	docker run -d --name $(MLFLOW_DOCKER_CONTAINER) \
-		-p $(MLFLOW_PORT):5000 \
-		$(MLFLOW_DOCKER_IMAGE) \
-		mlflow server --host 0.0.0.0 --port 5000

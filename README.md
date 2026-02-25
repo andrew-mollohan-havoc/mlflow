@@ -2,6 +2,12 @@
 
 Minimal setup for running MLflow client calls against a configured tracking server.
 
+Repo structure:
+
+- `src/mlflow_harness/` — reusable MLflow helpers and training example
+- `scripts/` — runnable entrypoints
+- `tests/` — basic unit tests
+
 ## Prerequisites
 
 - Python 3
@@ -12,6 +18,12 @@ Minimal setup for running MLflow client calls against a configured tracking serv
 make venv
 make install
 make activate
+```
+
+All commands in this repo use the project virtual environment. If you run scripts directly, use the venv Python:
+
+```bash
+venv/bin/python scripts/setup_tracking.py
 ```
 
 ## Docker Dependency
@@ -34,22 +46,52 @@ make mlflow-docker-logs
 make mlflow-docker-down
 ```
 
-If you are using an API token for query access, export it before running scripts:
+## Environment Variables
+
+Environment variables are loaded automatically from `.env` if present.
+Copy `.env.example` to `.env` and set values as needed:
 
 ```bash
-export MLFLOW_QUERY_TOKEN="..."
+MLFLOW_TRACKING_URI="https://your-tracking-server"
+MLFLOW_EXPERIMENT_NAME="your-experiment"
+MLFLOW_QUERY_TOKEN="optional-token"
 ```
 
-You can also copy `.env.example` to `.env` and load it with your preferred tool.
+## Git Hygiene
+
+The repository ignores local-only files like virtual environments, caches, MLflow local data (`mlruns/`, `mlartifacts/`, `mlflow.db`), and `.env` secrets. Keep `.env.example` tracked as the template.
 
 ## Example run commands
 
 ```bash
-# Connect to the tracking server and set the Default experiment
-python main.py
+# Connect to the tracking server and set the experiment
+make setup-tracking
 
-# Patch MLflow REST calls to append the token query param (if set)
-python jank.py
+# List all experiments (uses token patching if configured)
+make list-experiments
+
+# Train a model and log to MLflow
+make run-training
+```
+
+## Run Everything (venv + install + tests + runs)
+
+```bash
+make verify
+```
+
+You can also run the scripts directly:
+
+```bash
+python scripts/setup_tracking.py
+python scripts/list_experiments.py
+python scripts/run_training.py
+```
+
+## Tests
+
+```bash
+make test
 ```
 
 ## Local MLflow Data

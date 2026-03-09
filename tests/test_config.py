@@ -1,4 +1,10 @@
-from mlflow_harness.config import DEFAULT_EXPERIMENT_NAME, DEFAULT_TRACKING_URI, get_settings
+from mlflow_harness.config import DEFAULT_EXPERIMENT_NAME, DEFAULT_TRACKING_URI, _load_dotenv, get_settings
+
+
+def test_load_dotenv_calls_find_dotenv_when_path_is_none(monkeypatch):
+    monkeypatch.setattr("mlflow_harness.config.find_dotenv", lambda usecwd=False: "")
+    result = _load_dotenv(dotenv_path=None)
+    assert result == ""
 
 
 def test_get_settings_uses_dotenv(tmp_path, monkeypatch):

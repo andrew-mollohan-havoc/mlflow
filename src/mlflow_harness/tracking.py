@@ -35,6 +35,17 @@ def apply_query_token_patch(query_token: Optional[str]) -> bool:
 
     setattr(_http_request_with_token, _PATCH_ATTR, True)
     rest_utils.http_request = _http_request_with_token
+
+    # MLflow's artifact repo (HttpArtifactRepository) imports http_request directly
+    # at module load time, so the rest_utils patch above does not reach it.
+    # Patch the bound reference in that module explicitly.
+    try:
+        import mlflow.store.artifact.http_artifact_repo as _http_artifact_repo
+
+        _http_artifact_repo.http_request = _http_request_with_token
+    except Exception:
+        pass
+
     return True
 
 

@@ -1,13 +1,14 @@
-.PHONY: activate all clean install list-experiments \
+.PHONY: activate all clean coverage format install lint lint-fix list-experiments \
 	mlflow-docker-down mlflow-docker-logs mlflow-docker-login mlflow-docker-pull \
 	mlflow-docker-up mlflow-docker-up-defaults mlflow-local \
-	run-training setup-tracking test venv verify
+	run-training setup-tracking test validate-s3-artifacts venv verify
 
 VENV_DIR := venv
 VENV_BIN := $(VENV_DIR)/bin
 PYTHON := $(VENV_BIN)/python
 PIP := $(VENV_BIN)/pip
 PYTEST := $(VENV_BIN)/pytest
+RUFF := $(VENV_BIN)/ruff
 MLFLOW_PORT ?= 5000
 MLFLOW_DOCKER_IMAGE ?= ghcr.io/mlflow/mlflow
 MLFLOW_DOCKER_CONTAINER ?= mlflow-tracking
@@ -47,11 +48,26 @@ clean:
 run-training: install
 	$(PYTHON) scripts/run_training.py
 
+validate-s3-artifacts: install
+	$(PYTHON) scripts/validate_s3_artifacts.py
+
 setup-tracking: install
 	$(PYTHON) scripts/setup_tracking.py
 
+lint: install
+	$(RUFF) check src tests
+
+lint-fix: install
+	$(RUFF) check src tests --fix
+
+format: install
+	$(RUFF) format src tests
+
 test: install
 	$(PYTEST) -q
+
+coverage: install
+	$(PYTEST) --cov=src/mlflow_harness --cov-report=term-missing -q
 
 mlflow-local: mlflow-docker-up
 

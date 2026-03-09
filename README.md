@@ -1,109 +1,153 @@
-# MLflow Local Test Harness
+# MLflow Harness
 
-Minimal setup for running MLflow client calls against a configured tracking server.
+A test harness for validating [HavocAI](https://havocai.com) MLflow tracking instances. It verifies that the tracking server is reachable, experiments can be created and queried, model training runs log correctly, and artifacts are stored in S3 (not local storage).
 
-Repo structure:
+## What it tests
 
-- `src/mlflow_harness/` — reusable MLflow helpers and training example
-- `scripts/` — runnable entrypoints
-- `tests/` — basic unit tests
+| Script | What it validates |
+| --- | --- |
+| `make setup-tracking` | Server is reachable; experiment is created or found |
+| `make list-experiments` | Experiments can be listed (with token auth if configured) |
+| `make run-training` | Full training run: params, metrics, and model artifact logged |
+| `make validate-s3-artifacts` | Artifacts land in S3, not local storage |
 
 ## Prerequisites
 
-- Python 3
+- Python 3.9+
+- Docker (for running a local MLflow server)
 
-## Setup
+## Quick start
 
 ```bash
-make venv
+# 1. Create venv and install dependencies
 make install
-make activate
-```
 
-All commands in this repo use the project virtual environment. If you run scripts directly, use the venv Python:
+# 2. Copy env template and fill in your server details
+cp .env.example .env
 
-```bash
-venv/bin/python scripts/setup_tracking.py
-```
-
-## Docker Dependency
-
-Running MLflow locally uses the official Docker image. Make sure Docker Desktop (or equivalent) is installed and running before starting the tracking server.
-
-## Run MLflow Locally (Docker)
-
-```bash
-# Pull the MLflow image (optional; up will also pull)
-make mlflow-docker-pull
-
-# Start the tracking server on http://127.0.0.1:5000
+# 3. Start a local MLflow server (or point .env at an existing one)
 make mlflow-docker-up
 
-# View logs
+# 4. Run the full harness
+make verify
+```
+
+## Environment variables
+
+Copy `.env.example` to `.env` and set:
+
+```bash
+MLFLOW_TRACKING_URI="https://your-tracking-server"   # default: http://127.0.0.1:5000
+MLFLOW_EXPERIMENT_NAME="your-experiment"             # default: Default
+MLFLOW_QUERY_TOKEN="optional-auth-token"             # required for HavocAI instances
+```
+
+### Authentication: query token workaround
+
+> **This is a temporary workaround. See the long-term plan below.**
+
+The production MLflow instance sits behind a reverse proxy that enforces OIDC authentication. Because MLflow's Python client has no built-in support for OIDC flows, we currently bypass the check by appending a shared token as a query parameter to every request:
+
+```text
+https://mlflow.example.com/api/2.0/mlflow/experiments/list?token=<MLFLOW_QUERY_TOKEN>
+```
+
+The harness implements this via a monkey-patch in [src/mlflow_harness/tracking.py](src/mlflow_harness/tracking.py) (`apply_query_token_patch`). It wraps MLflow's internal `http_request` function at runtime so the token is injected transparently without changing any MLflow source.
+
+**Why this is a problem:** a shared bypass token is not scoped to a user or service, cannot be rotated per caller, and leaks full MLflow access to anyone who holds it. It is purely a stopgap to unblock development.
+
+**Long-term solution:** provision a [Zitadel](https://zitadel.com) service account for each automated workload (CI, training jobs, this harness). Configure MLflow's reverse proxy to accept Zitadel-issued JWT bearer tokens, and have each client obtain a short-lived token via the Zitadel client-credentials flow before making MLflow API calls. This removes the shared secret entirely and gives per-service auditability and revocation.
+
+## Running the harness
+
+```bash
+# Connect to the server and set the active experiment
+make setup-tracking
+
+# List all experiments
+make list-experiments
+
+# Train a RandomForest on the diabetes dataset and log to MLflow
+make run-training
+
+# Verify artifacts are stored in S3 (requires a server with --serve-artifacts)
+make validate-s3-artifacts
+
+# Run all of the above in sequence
+make verify
+```
+
+## Development
+
+### Tests
+
+Tests run without a live server by mocking MLflow calls. The three training tests write to a local temp directory — no server needed.
+
+```bash
+# Run tests
+make test
+
+# Run tests with line-by-line coverage report
+make coverage
+```
+
+### Linting and formatting
+
+This project uses [ruff](https://docs.astral.sh/ruff/) for both linting and formatting.
+
+```bash
+# Check for lint errors (no changes made)
+make lint
+
+# Auto-fix lint errors where possible
+make lint-fix
+
+# Format source files in place
+make format
+```
+
+`make lint` and `make format` target `src/` and `tests/`. Rules are configured in [pyproject.toml](pyproject.toml) under `[tool.ruff]`.
+
+## Local MLflow server (Docker)
+
+```bash
+# Start the server on http://127.0.0.1:5000 with persistent local storage
+make mlflow-docker-up
+
+# View recent logs
 make mlflow-docker-logs
 
 # Stop and remove the container
 make mlflow-docker-down
 ```
 
-## Environment Variables
-
-Environment variables are loaded automatically from `.env` if present.
-Copy `.env.example` to `.env` and set values as needed:
+To override the port or image:
 
 ```bash
-MLFLOW_TRACKING_URI="https://your-tracking-server"
-MLFLOW_EXPERIMENT_NAME="your-experiment"
-MLFLOW_QUERY_TOKEN="optional-token"
+make mlflow-docker-up MLFLOW_PORT=5001
 ```
 
-## Git Hygiene
+## Project layout
 
-The repository ignores local-only files like virtual environments, caches, MLflow local data (`mlruns/`, `mlartifacts/`, `mlflow.db`), and `.env` secrets. Keep `.env.example` tracked as the template.
+```text
+src/mlflow_harness/
+  config.py        # Settings dataclass; loads .env via python-dotenv
+  tracking.py      # configure_mlflow() + query-token monkey-patch
+  experiments.py   # list_experiments() wrapper
+  training.py      # RandomForest training run example
+  validation.py    # S3 artifact storage validation
 
-## Example run commands
-
-```bash
-# Connect to the tracking server and set the experiment
-make setup-tracking
-
-# List all experiments (uses token patching if configured)
-make list-experiments
-
-# Train a model and log to MLflow
-make run-training
+scripts/           # CLI entry points (called by Makefile targets)
+tests/             # Unit tests (pytest)
 ```
-
-## Run Everything (venv + install + tests + runs)
-
-```bash
-make verify
-```
-
-You can also run the scripts directly:
-
-```bash
-python scripts/setup_tracking.py
-python scripts/list_experiments.py
-python scripts/run_training.py
-```
-
-## Tests
-
-```bash
-make test
-```
-
-## Local MLflow Data
-
-Local runs and artifacts are stored in `mlruns/` and `mlartifacts/` when you use the Docker-backed tracking server. These directories are intentionally gitignored because they are environment-specific and can be large and frequently changing.
 
 ## Cleanup
 
 ```bash
+# Remove the venv
 make clean
 ```
 
-## Docs
+## Reference
 
-MLflow quickstart: <https://mlflow.org/docs/latest/ml/getting-started/running-notebooks/>
+- [MLflow docs](https://mlflow.org/docs/latest/)

@@ -2,4 +2,6 @@ jupyter
 mlflow >= 3.1
 python-dotenv
 pytest
+pytest-cov
+ruff
 scikit-learn

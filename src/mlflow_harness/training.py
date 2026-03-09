@@ -30,7 +30,7 @@ def run_training(run_name: str = "model_training_run") -> tuple[float, str]:
         rf.fit(X_train, y_train)
 
         predictions = rf.predict(X_test)
-        rmse = sklearn.metrics.root_mean_squared_error(y_test, predictions, squared=False)
+        rmse = sklearn.metrics.root_mean_squared_error(y_test, predictions)
         mlflow.log_metric("rmse", rmse)
 
         mlflow.sklearn.log_model(rf, "model")
